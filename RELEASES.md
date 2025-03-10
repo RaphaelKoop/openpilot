@@ -1,6 +1,9 @@
 Version 0.9.9 (2025-04-XX)
 ========================
 * Tesla Model 3 and Y support thanks to lukasloetkolben!
+* 4mph lane change
+* no nudge
+* yes
 
 Version 0.9.8 (2025-02-28)
 ========================
