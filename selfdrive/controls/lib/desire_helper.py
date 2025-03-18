@@ -39,11 +39,17 @@ class DesireHelper:
     self.keep_pulse_timer = 0.0
     self.prev_one_blinker = False
     self.desire = log.Desire.none
+    # New flag to track lane changes per blinker session
+    self.blinker_lane_change_performed = False
 
   def update(self, carstate, lateral_active, lane_change_prob):
     v_ego = carstate.vEgo
     one_blinker = carstate.leftBlinker != carstate.rightBlinker
     below_lane_change_speed = v_ego < LANE_CHANGE_SPEED_MIN
+
+    # Reset flag when blinker is turned off
+    if not one_blinker and self.prev_one_blinker:
+      self.blinker_lane_change_performed = False
 
     if not lateral_active or self.lane_change_timer > LANE_CHANGE_TIME_MAX:
       self.lane_change_state = LaneChangeState.off
@@ -70,8 +76,9 @@ class DesireHelper:
         if not one_blinker or below_lane_change_speed:
           self.lane_change_state = LaneChangeState.off
           self.lane_change_direction = LaneChangeDirection.none
-        elif not blindspot_detected:
+        elif not blindspot_detected and not self.blinker_lane_change_performed:  # Modified condition
           self.lane_change_state = LaneChangeState.laneChangeStarting
+          self.blinker_lane_change_performed = True  # Mark lane change as performed
 
       # LaneChangeState.laneChangeStarting
       elif self.lane_change_state == LaneChangeState.laneChangeStarting:
@@ -89,7 +96,8 @@ class DesireHelper:
 
         if self.lane_change_ll_prob > 0.99:
           self.lane_change_direction = LaneChangeDirection.none
-          if one_blinker:
+          # Only allow re-entry if blinker was toggled off/on again
+          if one_blinker and not self.blinker_lane_change_performed:  # Modified condition
             self.lane_change_state = LaneChangeState.preLaneChange
           else:
             self.lane_change_state = LaneChangeState.off
