@@ -39,15 +39,14 @@ class DesireHelper:
     self.keep_pulse_timer = 0.0
     self.prev_one_blinker = False
     self.desire = log.Desire.none
-    # New flag to track lane changes per blinker session
-    self.blinker_lane_change_performed = False
+    self.blinker_lane_change_performed = False  # Tracks if a lane change has been done in current blinker session
 
   def update(self, carstate, lateral_active, lane_change_prob):
     v_ego = carstate.vEgo
     one_blinker = carstate.leftBlinker != carstate.rightBlinker
     below_lane_change_speed = v_ego < LANE_CHANGE_SPEED_MIN
 
-    # Reset flag when blinker is turned off
+    # Reset flag when blinker turns off
     if not one_blinker and self.prev_one_blinker:
       self.blinker_lane_change_performed = False
 
@@ -55,20 +54,19 @@ class DesireHelper:
       self.lane_change_state = LaneChangeState.off
       self.lane_change_direction = LaneChangeDirection.none
     else:
-      # LaneChangeState.off
-      if self.lane_change_state == LaneChangeState.off and one_blinker and not self.prev_one_blinker and not below_lane_change_speed:
+      # LaneChangeState.off: Start lane change if blinker is active and no previous lane change was done
+      if self.lane_change_state == LaneChangeState.off and one_blinker and not self.prev_one_blinker and not below_lane_change_speed and not self.blinker_lane_change_performed:
         self.lane_change_state = LaneChangeState.preLaneChange
         self.lane_change_ll_prob = 1.0
 
       # LaneChangeState.preLaneChange
       elif self.lane_change_state == LaneChangeState.preLaneChange:
-        # Set lane change direction
-        self.lane_change_direction = LaneChangeDirection.left if \
-          carstate.leftBlinker else LaneChangeDirection.right
+        self.lane_change_direction = LaneChangeDirection.left if carstate.leftBlinker else LaneChangeDirection.right
 
-        torque_applied = carstate.steeringPressed and \
-                         ((carstate.steeringTorque > 0 and self.lane_change_direction == LaneChangeDirection.left) or
-                          (carstate.steeringTorque < 0 and self.lane_change_direction == LaneChangeDirection.right))
+        torque_applied = carstate.steeringPressed and (
+          (carstate.steeringTorque > 0 and self.lane_change_direction == LaneChangeDirection.left) or
+          (carstate.steeringTorque < 0 and self.lane_change_direction == LaneChangeDirection.right)
+        )
 
         blindspot_detected = ((carstate.leftBlindspot and self.lane_change_direction == LaneChangeDirection.left) or
                               (carstate.rightBlindspot and self.lane_change_direction == LaneChangeDirection.right))
@@ -76,31 +74,24 @@ class DesireHelper:
         if not one_blinker or below_lane_change_speed:
           self.lane_change_state = LaneChangeState.off
           self.lane_change_direction = LaneChangeDirection.none
-        elif not blindspot_detected and not self.blinker_lane_change_performed:  # Modified condition
+        elif not blindspot_detected:
           self.lane_change_state = LaneChangeState.laneChangeStarting
-          self.blinker_lane_change_performed = True  # Mark lane change as performed
+          self.blinker_lane_change_performed = True  # Mark lane change as done
 
       # LaneChangeState.laneChangeStarting
       elif self.lane_change_state == LaneChangeState.laneChangeStarting:
-        # fade out over .5s
         self.lane_change_ll_prob = max(self.lane_change_ll_prob - 2 * DT_MDL, 0.0)
 
-        # 98% certainty
         if lane_change_prob < 0.02 and self.lane_change_ll_prob < 0.01:
           self.lane_change_state = LaneChangeState.laneChangeFinishing
 
       # LaneChangeState.laneChangeFinishing
       elif self.lane_change_state == LaneChangeState.laneChangeFinishing:
-        # fade in laneline over 1s
         self.lane_change_ll_prob = min(self.lane_change_ll_prob + DT_MDL, 1.0)
 
         if self.lane_change_ll_prob > 0.99:
           self.lane_change_direction = LaneChangeDirection.none
-          # Only allow re-entry if blinker was toggled off/on again
-          if one_blinker and not self.blinker_lane_change_performed:  # Modified condition
-            self.lane_change_state = LaneChangeState.preLaneChange
-          else:
-            self.lane_change_state = LaneChangeState.off
+          self.lane_change_state = LaneChangeState.off  # Ensure reset after completion
 
     if self.lane_change_state in (LaneChangeState.off, LaneChangeState.preLaneChange):
       self.lane_change_timer = 0.0
@@ -111,7 +102,7 @@ class DesireHelper:
 
     self.desire = DESIRES[self.lane_change_direction][self.lane_change_state]
 
-    # Send keep pulse once per second during LaneChangeStart.preLaneChange
+    # Send keep pulse once per second during preLaneChange
     if self.lane_change_state in (LaneChangeState.off, LaneChangeState.laneChangeStarting):
       self.keep_pulse_timer = 0.0
     elif self.lane_change_state == LaneChangeState.preLaneChange:
