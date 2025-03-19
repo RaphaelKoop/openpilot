@@ -5,6 +5,8 @@ Version 0.9.9 (2025-04-30)
 * Coming soon
   * New driving model supervised by MLSIM
   * An online learner for steering actuator delay
+  * nudgless but only one lane change per blinker
+  * 5mph lane change speed
 
 Version 0.9.8 (2025-02-28)
 ========================
