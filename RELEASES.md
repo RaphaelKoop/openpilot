@@ -6,7 +6,8 @@ Version 0.9.9 (2025-04-30)
   * New driving model supervised by MLSIM
   * An online learner for steering actuator delay
 * nudgeless lane change but only once per blinker set
-* 5mph lane change speed 
+* 5mph lane change speed
+* X_EGO_OBSTACLE_COST and LEAD_DANGER_FACTOR changes to 2 and 0.6
 
 Version 0.9.8 (2025-02-28)
 ========================
