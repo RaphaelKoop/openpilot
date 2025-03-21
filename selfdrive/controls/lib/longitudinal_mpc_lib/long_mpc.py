@@ -31,7 +31,7 @@ COST_E_DIM = 5
 COST_DIM = COST_E_DIM + 1
 CONSTR_DIM = 4
 
-X_EGO_OBSTACLE_COST = 2.
+X_EGO_OBSTACLE_COST = 3.
 X_EGO_COST = 0.
 V_EGO_COST = 0.
 A_EGO_COST = 0.
@@ -62,7 +62,7 @@ def get_jerk_factor(personality=log.LongitudinalPersonality.standard):
   if personality==log.LongitudinalPersonality.relaxed:
     return 1.0
   elif personality==log.LongitudinalPersonality.standard:
-    return 0.9
+    return 1.0
   elif personality==log.LongitudinalPersonality.aggressive:
     return 0.5
   else:
@@ -71,11 +71,11 @@ def get_jerk_factor(personality=log.LongitudinalPersonality.standard):
 
 def get_T_FOLLOW(personality=log.LongitudinalPersonality.standard):
   if personality==log.LongitudinalPersonality.relaxed:
-    return 1.45
+    return 1.5
   elif personality==log.LongitudinalPersonality.standard:
-    return 1.2
+    return 1.3
   elif personality==log.LongitudinalPersonality.aggressive:
-    return 1.1
+    return 1.2
   else:
     raise NotImplementedError("Longitudinal personality not supported")
 
@@ -348,7 +348,7 @@ class LongitudinalMpc:
     if self.mode == 'acc':
       # Dynamically adjust danger factor based on lead behavior
       lead = radarstate.leadOne
-      if lead.status and lead.vLead > 5.0 and lead.dRel > 20.0:
+      if lead.status and lead.vLead > 7.0 and lead.dRel > 20.0:
         self.params[:,5] = 0.5  # relaxed for far, fast-moving leads (e.g., merging cars)
       else:
         self.params[:,5] = 0.75  # standard caution for stopped or slow leads
