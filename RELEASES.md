@@ -7,7 +7,7 @@ Version 0.9.9 (2025-04-30)
   * An online learner for steering actuator delay
 * nudgeless lane change but only once per blinker set
 * 5mph lane change speed
-* X_EGO_OBSTACLE_COST and LEAD_DANGER_FACTOR changes to 2 and 0.5
+* X_EGO_OBSTACLE_COST chnaged to 2. and dynamic adjustment of LEAD_DANGER_FACTOR
 
 Version 0.9.8 (2025-02-28)
 ========================
