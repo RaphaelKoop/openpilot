@@ -39,7 +39,7 @@ J_EGO_COST = 5.0
 A_CHANGE_COST = 200.
 DANGER_ZONE_COST = 100.
 CRASH_DISTANCE = .25
-LEAD_DANGER_FACTOR = 0.5
+LEAD_DANGER_FACTOR = 0.75
 LIMIT_COST = 1e6
 ACADOS_SOLVER_TYPE = 'SQP_RTI'
 
@@ -62,7 +62,7 @@ def get_jerk_factor(personality=log.LongitudinalPersonality.standard):
   if personality==log.LongitudinalPersonality.relaxed:
     return 1.0
   elif personality==log.LongitudinalPersonality.standard:
-    return 1.0
+    return 0.9
   elif personality==log.LongitudinalPersonality.aggressive:
     return 0.5
   else:
@@ -75,7 +75,7 @@ def get_T_FOLLOW(personality=log.LongitudinalPersonality.standard):
   elif personality==log.LongitudinalPersonality.standard:
     return 1.2
   elif personality==log.LongitudinalPersonality.aggressive:
-    return 1.0
+    return 1.1
   else:
     raise NotImplementedError("Longitudinal personality not supported")
 
@@ -346,7 +346,12 @@ class LongitudinalMpc:
 
     # Update in ACC mode or ACC/e2e blend
     if self.mode == 'acc':
-      self.params[:,5] = LEAD_DANGER_FACTOR
+      # Dynamically adjust danger factor based on lead behavior
+      lead = radarstate.leadOne
+      if lead.status and lead.vLead > 5.0 and lead.dRel > 20.0:
+        self.params[:,5] = 0.5  # relaxed for far, fast-moving leads (e.g., merging cars)
+      else:
+        self.params[:,5] = 0.75  # standard caution for stopped or slow leads
 
       # Fake an obstacle for cruise, this ensures smooth acceleration to set speed
       # when the leads are no factor.
@@ -354,14 +359,15 @@ class LongitudinalMpc:
       # TODO does this make sense when max_a is negative?
       v_upper = v_ego + (T_IDXS * CRUISE_MAX_ACCEL * 1.05)
       v_cruise_clipped = np.clip(v_cruise * np.ones(N+1),
-                                 v_lower,
-                                 v_upper)
+                                v_lower,
+                                v_upper)
       cruise_obstacle = np.cumsum(T_DIFFS * v_cruise_clipped) + get_safe_obstacle_distance(v_cruise_clipped, t_follow)
       x_obstacles = np.column_stack([lead_0_obstacle, lead_1_obstacle, cruise_obstacle])
       self.source = SOURCES[np.argmin(x_obstacles[0])]
 
       # These are not used in ACC mode
       x[:], v[:], a[:], j[:] = 0.0, 0.0, 0.0, 0.0
+
 
     elif self.mode == 'blended':
       self.params[:,5] = 1.0
