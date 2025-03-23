@@ -8,6 +8,7 @@ Version 0.9.9 (2025-04-30)
 * nudgeless lane change but only once per blinker set
 * 5mph lane change speed
 * X_EGO_OBSTACLE_COST chnaged to 3. and dynamic adjustment of LEAD_DANGER_FACTOR
+* follow distances lowered 
 
 Version 0.9.8 (2025-02-28)
 ========================
