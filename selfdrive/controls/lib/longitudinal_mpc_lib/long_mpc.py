@@ -73,7 +73,7 @@ def get_T_FOLLOW(personality=log.LongitudinalPersonality.standard):
   if personality==log.LongitudinalPersonality.relaxed:
     return 1.4
   elif personality==log.LongitudinalPersonality.standard:
-    return 1.2
+    return 1.1
   elif personality==log.LongitudinalPersonality.aggressive:
     return 1.1
   else:
@@ -346,8 +346,8 @@ class LongitudinalMpc:
 
       if lead.status:
         relative_speed = v_ego - lead.vLead
-        far_enough = lead.dRel > (10.0 + v_ego * 0.2)
-        not_much_slower = relative_speed < 4.5
+        far_enough = lead.dRel > (8.0 + v_ego * 0.2)
+        not_much_slower = relative_speed < 6
         going_faster = relative_speed < -0.2
 
         if lead.vLead < 0.1:
@@ -357,7 +357,7 @@ class LongitudinalMpc:
         else:
           self.params[:,5] = 0.75  # Cautious for closer or slower leads
       else:
-        self.params[:,5] = 0.55
+        self.params[:,5] = 0.45
 
       v_lower = v_ego + (T_IDXS * CRUISE_MIN_ACCEL * 1.05)
       v_upper = v_ego + (T_IDXS * CRUISE_MAX_ACCEL * 1.05)
