@@ -1,14 +1,21 @@
-Version 0.9.9 (2025-04-30)
+Version 0.9.9 (2025-05-15)
 ========================
 * New driving model
+  * New training architecture supervised by MLSIM
+* Steering actuator delay is now learned online
 * Tesla Model 3 and Y support thanks to lukasloetkolben!
 * Coming soon
+<<<<<<< HEAD
   * New driving model supervised by MLSIM
   * An online learner for steering actuator delay
 * nudgeless lane change but only once per blinker set
 * 5mph lane change speed
 * X_EGO_OBSTACLE_COST chnaged to 3. and dynamic adjustment of LEAD_DANGER_FACTOR
 * follow distances lowered 
+=======
+  * New Honda models
+  * Bigger vision model
+>>>>>>> upstream/master
 
 Version 0.9.8 (2025-02-28)
 ========================
