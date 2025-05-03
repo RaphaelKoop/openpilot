@@ -71,11 +71,11 @@ def get_jerk_factor(personality=log.LongitudinalPersonality.standard):
 
 def get_T_FOLLOW(personality=log.LongitudinalPersonality.standard):
   if personality==log.LongitudinalPersonality.relaxed:
-    return 1.75
+    return 1.4
   elif personality==log.LongitudinalPersonality.standard:
-    return 1.45
+    return 1.2
   elif personality==log.LongitudinalPersonality.aggressive:
-    return 1.25
+    return 1.0
   else:
     raise NotImplementedError("Longitudinal personality not supported")
 
@@ -335,46 +335,49 @@ class LongitudinalMpc:
     lead_xv_0 = self.process_lead(radarstate.leadOne)
     lead_xv_1 = self.process_lead(radarstate.leadTwo)
 
-    # To estimate a safe distance from a moving lead, we calculate how much stopping
-    # distance that lead needs as a minimum. We can add that to the current distance
-    # and then treat that as a stopped car/obstacle at this new distance.
     lead_0_obstacle = lead_xv_0[:,0] + get_stopped_equivalence_factor(lead_xv_0[:,1])
     lead_1_obstacle = lead_xv_1[:,0] + get_stopped_equivalence_factor(lead_xv_1[:,1])
 
     self.params[:,0] = ACCEL_MIN
     self.params[:,1] = ACCEL_MAX
 
-    # Update in ACC mode or ACC/e2e blend
     if self.mode == 'acc':
-      self.params[:,5] = LEAD_DANGER_FACTOR
+      lead = radarstate.leadOne
 
-      # Fake an obstacle for cruise, this ensures smooth acceleration to set speed
-      # when the leads are no factor.
+      if lead.status:
+        relative_speed = v_ego - lead.vLead
+        far_enough = lead.dRel > (10.0 + v_ego * 0.2)
+        not_much_slower = relative_speed < 5.0
+        going_faster = relative_speed < -0.2
+
+        if lead.vLead < 0.1:
+          self.params[:,5] = 0.75  # Full caution for stopped leads
+        elif far_enough and (not_much_slower or going_faster):
+          self.params[:,5] = 0.4  # Relaxed for highway merges
+        else:
+          self.params[:,5] = 0.75  # Cautious for closer or slower leads
+      else:
+        self.params[:,5] = 0.45
+
       v_lower = v_ego + (T_IDXS * CRUISE_MIN_ACCEL * 1.05)
-      # TODO does this make sense when max_a is negative?
       v_upper = v_ego + (T_IDXS * CRUISE_MAX_ACCEL * 1.05)
-      v_cruise_clipped = np.clip(v_cruise * np.ones(N+1),
-                                 v_lower,
-                                 v_upper)
+      v_cruise_clipped = np.clip(v_cruise * np.ones(N+1), v_lower, v_upper)
       cruise_obstacle = np.cumsum(T_DIFFS * v_cruise_clipped) + get_safe_obstacle_distance(v_cruise_clipped, t_follow)
       x_obstacles = np.column_stack([lead_0_obstacle, lead_1_obstacle, cruise_obstacle])
       self.source = SOURCES[np.argmin(x_obstacles[0])]
 
-      # These are not used in ACC mode
       x[:], v[:], a[:], j[:] = 0.0, 0.0, 0.0, 0.0
 
     elif self.mode == 'blended':
       self.params[:,5] = 1.0
 
-      x_obstacles = np.column_stack([lead_0_obstacle,
-                                     lead_1_obstacle])
+      x_obstacles = np.column_stack([lead_0_obstacle, lead_1_obstacle])
       cruise_target = T_IDXS * np.clip(v_cruise, v_ego - 2.0, 1e3) + x[0]
       xforward = ((v[1:] + v[:-1]) / 2) * (T_IDXS[1:] - T_IDXS[:-1])
       x = np.cumsum(np.insert(xforward, 0, x[0]))
 
       x_and_cruise = np.column_stack([x, cruise_target])
       x = np.min(x_and_cruise, axis=1)
-
       self.source = 'e2e' if x_and_cruise[1,0] < x_and_cruise[1,1] else 'cruise'
 
     else:
@@ -393,20 +396,20 @@ class LongitudinalMpc:
     self.params[:,4] = t_follow
 
     self.run()
+
     if (np.any(lead_xv_0[FCW_IDXS,0] - self.x_sol[FCW_IDXS,0] < CRASH_DISTANCE) and
             radarstate.leadOne.modelProb > 0.9):
       self.crash_cnt += 1
     else:
       self.crash_cnt = 0
 
-    # Check if it got within lead comfort range
-    # TODO This should be done cleaner
     if self.mode == 'blended':
-      if any((lead_0_obstacle - get_safe_obstacle_distance(self.x_sol[:,1], t_follow))- self.x_sol[:,0] < 0.0):
+      if any((lead_0_obstacle - get_safe_obstacle_distance(self.x_sol[:,1], t_follow)) - self.x_sol[:,0] < 0.0):
         self.source = 'lead0'
-      if any((lead_1_obstacle - get_safe_obstacle_distance(self.x_sol[:,1], t_follow))- self.x_sol[:,0] < 0.0) and \
-         (lead_1_obstacle[0] - lead_0_obstacle[0]):
+      if any((lead_1_obstacle - get_safe_obstacle_distance(self.x_sol[:,1], t_follow)) - self.x_sol[:,0] < 0.0) and \
+        (lead_1_obstacle[0] - lead_0_obstacle[0]):
         self.source = 'lead1'
+
 
   def run(self):
     # t0 = time.monotonic()
